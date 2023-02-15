@@ -1,11 +1,18 @@
 from django.contrib.auth import get_user_model
-from rest_framework.viewsets import ModelViewSet
+from rest_framework import mixins, viewsets
 
-from .serializers import UserSerializer
+from .serializers import UserCreationSerializer, UserListRetrieveSerializer
 
 User = get_user_model()
 
 
-class UserViewSet(ModelViewSet):
+class UserCreateListRetrieveViewSet(mixins.CreateModelMixin,
+                                    mixins.ListModelMixin,
+                                    mixins.RetrieveModelMixin,
+                                    viewsets.GenericViewSet):
     queryset = User.objects.all()
-    serializer_class = UserSerializer
+
+    def get_serializer_class(self):
+        if self.action == "list" or self.action == "retrieve":
+            return UserListRetrieveSerializer
+        return UserCreationSerializer
