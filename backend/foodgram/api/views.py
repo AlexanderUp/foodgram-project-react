@@ -29,12 +29,12 @@ class UserCreateListRetrieveViewSet(mixins.CreateModelMixin,
             permissions = [IsAuthenticated]
         return [permission() for permission in permissions]
 
-    @action(detail=False, methods=["get"], url_path="me")
-    def user_profile(self, request):
+    @action(detail=False, methods=["get"])
+    def me(self, request):
         serializer = UserListRetrieveSerializer(request.user)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
-    @action(detail=False, methods=["post"], url_path="set_password")
+    @action(detail=False, methods=["post"])
     def set_password(self, request):
         serializer = PasswordChangeSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
