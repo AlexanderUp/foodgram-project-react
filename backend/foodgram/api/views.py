@@ -18,7 +18,8 @@ class UserCreateListRetrieveViewSet(mixins.CreateModelMixin,
     queryset = User.objects.all()
 
     def get_serializer_class(self):
-        if self.action == "list" or self.action == "retrieve":
+        action_list = ("list", "retrieve", "me")
+        if self.action in action_list:
             return UserListRetrieveSerializer
         return UserCreationSerializer
 
@@ -31,7 +32,8 @@ class UserCreateListRetrieveViewSet(mixins.CreateModelMixin,
 
     @action(detail=False, methods=["get"])
     def me(self, request):
-        serializer = UserListRetrieveSerializer(request.user)
+        serializer_class = self.get_serializer_class()
+        serializer = serializer_class(request.user)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     @action(detail=False, methods=["post"])
