@@ -1,6 +1,8 @@
 from django.contrib.auth import get_user_model
-from django.contrib.auth.password_validation import validate_password
+from django.contrib.auth.password_validation import \
+    validate_password as user_validate_password
 from django.core.exceptions import ValidationError
+from django.db import transaction
 from rest_framework import serializers
 
 User = get_user_model()
@@ -37,11 +39,27 @@ class UserCreationSerializer(UserCustomBaseSerializer):
             "password": {"required": True, "write_only": True},
         }
 
+    def validate_password(self, value):
+        user_validate_password(value)
+        return value
+
+    def validate(self, data):
+        if User.objects.filter(
+            email=data.get("email"),
+            username=data.get("username"),
+            first_name=data.get("first_name"),
+            last_name=data.get("last_name"),
+        ).exists():
+            raise ValidationError(
+                "User whis given credentials already exists!")
+        return data
+
     def create(self, validated_data):
         password = validated_data.pop("password")
-        user = User.objects.create_user(**validated_data)  # type:ignore
-        user.set_password(password)
-        user.save()
+        with transaction.atomic():
+            user = User.objects.create_user(**validated_data)  # type:ignore
+            user.set_password(password)
+            user.save()
         return user
 
 
@@ -60,7 +78,7 @@ class PasswordChangeSerializer(serializers.Serializer):
     )
 
     def validate_new_password(self, value):
-        validate_password(value)
+        user_validate_password(value)
         return value
 
     def validate(self, data):
