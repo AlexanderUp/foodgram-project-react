@@ -9,7 +9,7 @@ class Tag(models.Model):
     name = models.CharField(
         verbose_name="name",
         help_text="Tag's name",
-        max_length=20,
+        max_length=200,
         unique=True,
     )
     color = models.CharField(
@@ -21,7 +21,7 @@ class Tag(models.Model):
     slug = models.SlugField(
         verbose_name="slug",
         help_text="Tag's slug",
-        max_length=20,
+        max_length=200,
         unique=True,
     )
 
@@ -38,7 +38,7 @@ class MeasurementUnit(models.Model):
     name = models.CharField(
         verbose_name="name",
         help_text="Measurement unit name",
-        max_length=20,
+        max_length=200,
         unique=True,
     )
 
@@ -55,7 +55,7 @@ class Ingredient(models.Model):
     name = models.CharField(
         verbose_name="name",
         help_text="Ingredient name",
-        max_length=120,
+        max_length=200,
     )
     measurement_unit = models.ForeignKey(
         MeasurementUnit,

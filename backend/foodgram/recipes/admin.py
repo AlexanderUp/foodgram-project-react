@@ -10,11 +10,18 @@ class TagAdmin(admin.ModelAdmin):
         "color",
         "slug",
     )
+    search_fields = (
+        "name",
+        "slug",
+    )
 
 
 class MeasurementUnitAdmin(admin.ModelAdmin):
     list_display = (
         "pk",
+        "name",
+    )
+    search_fields = (
         "name",
     )
 
@@ -27,6 +34,9 @@ class IngredientAdmin(admin.ModelAdmin):
     )
     list_select_related = (
         "measurement_unit",
+    )
+    search_fields = (
+        "name",
     )
 
 

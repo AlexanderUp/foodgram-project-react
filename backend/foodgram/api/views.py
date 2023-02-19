@@ -1,12 +1,15 @@
 from django.contrib.auth import get_user_model
 from djoser.views import TokenCreateView
-from rest_framework import mixins, status, viewsets
+from rest_framework import filters, mixins, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
-from .serializers import (PasswordChangeSerializer, UserCreationSerializer,
+from .serializers import (IngredientSerializer, PasswordChangeSerializer,
+                          TagSerializer, UserCreationSerializer,
                           UserListRetrieveSerializer)
+
+from recipes.models import Ingredient, Tag  # isort:skip
 
 User = get_user_model()
 
@@ -58,3 +61,19 @@ class CustomTokenCreateView(TokenCreateView):
         response = super()._action(serializer)
         response.status_code = status.HTTP_201_CREATED
         return response
+
+
+class TagReadOnlyViewSet(viewsets.ReadOnlyModelViewSet):
+    serializer_class = TagSerializer
+    queryset = Tag.objects.all()
+    permission_classes = (AllowAny,)
+    pagination_class = None
+
+
+class IngredientReadOnlyViewSet(viewsets.ReadOnlyModelViewSet):
+    serializer_class = IngredientSerializer
+    queryset = Ingredient.objects.all()
+    permission_classes = (AllowAny,)
+    pagination_class = None
+    filter_backends = (filters.SearchFilter,)
+    search_fields = ("^name",)  # "@name"

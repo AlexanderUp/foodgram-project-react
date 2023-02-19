@@ -5,6 +5,8 @@ from django.core.exceptions import ValidationError
 from django.db import transaction
 from rest_framework import serializers
 
+from recipes.models import Ingredient, Tag  # isort:skip
+
 User = get_user_model()
 
 
@@ -88,3 +90,26 @@ class PasswordChangeSerializer(serializers.Serializer):
             raise ValidationError(
                 "You try to use current password as new password!")
         return data
+
+
+class TagSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Tag
+        fields = (
+            "id",
+            "name",
+            "color",
+            "slug",
+        )
+
+
+class IngredientSerializer(serializers.ModelSerializer):
+    measurement_unit = serializers.StringRelatedField()
+
+    class Meta:
+        model = Ingredient
+        fields = (
+            "id",
+            "name",
+            "measurement_unit",
+        )
