@@ -1,10 +1,12 @@
 from django.contrib.auth import get_user_model
+from django_filters.rest_framework import DjangoFilterBackend
 from djoser.views import TokenCreateView
 from rest_framework import filters, mixins, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
+from .filters import CustomOrderedIngredientSearchFilter
 from .serializers import (IngredientSerializer, PasswordChangeSerializer,
                           TagSerializer, UserCreationSerializer,
                           UserListRetrieveSerializer)
@@ -72,8 +74,10 @@ class TagReadOnlyViewSet(viewsets.ReadOnlyModelViewSet):
 
 class IngredientReadOnlyViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = IngredientSerializer
-    queryset = Ingredient.objects.all()
+    queryset = Ingredient.objects.select_related("measurement_unit").all()
     permission_classes = (AllowAny,)
     pagination_class = None
-    filter_backends = (filters.SearchFilter,)
-    search_fields = ("^name",)  # "@name"
+    filter_backends = (DjangoFilterBackend,
+                       CustomOrderedIngredientSearchFilter)
+    filterset_fields = ("name",)
+    search_fields = ("name",)
