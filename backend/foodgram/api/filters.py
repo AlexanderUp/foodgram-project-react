@@ -6,6 +6,9 @@ from rest_framework.filters import SearchFilter
 class CustomOrderedIngredientSearchFilter(SearchFilter):
 
     def filter_queryset(self, request, queryset, view):
+        if self.search_param not in request.query_params:
+            return queryset
+
         search_fields = self.get_search_fields(view, request)
         search_terms = self.get_search_terms(request)
 
@@ -31,4 +34,4 @@ class CustomOrderedIngredientSearchFilter(SearchFilter):
         query_icontains = (queryset.filter(*search_icontains)
                                    .exclude(*search_istartswith)
                                    .annotate(order_field=Value(2)))
-        return query_istartswith.union(query_icontains).order_by("order_field")
+        return query_istartswith.union(query_icontains).order_by("order_field", "name",)

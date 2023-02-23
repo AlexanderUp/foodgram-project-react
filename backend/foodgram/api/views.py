@@ -1,4 +1,6 @@
 from django.contrib.auth import get_user_model
+from django.db.models import Prefetch
+from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
 from djoser.views import TokenCreateView
 from rest_framework import filters, mixins, status, viewsets
@@ -8,10 +10,12 @@ from rest_framework.response import Response
 
 from .filters import CustomOrderedIngredientSearchFilter
 from .serializers import (IngredientSerializer, PasswordChangeSerializer,
-                          TagSerializer, UserCreationSerializer,
-                          UserListRetrieveSerializer)
+                          RecipeSerializer, RecipeWriteSerializer,
+                          SubscriptionSerializer, TagSerializer,
+                          UserCreationSerializer, UserListRetrieveSerializer)
 
-from recipes.models import Ingredient, Tag  # isort:skip
+from recipes.models import (Ingredient, MeasurementUnit, Recipe,  # isort:skip
+                            RecipeIngredient, Tag)
 
 User = get_user_model()
 
@@ -23,13 +27,14 @@ class UserCreateListRetrieveViewSet(mixins.CreateModelMixin,
     queryset = User.objects.all()
 
     def get_serializer_class(self):
-        action_list = ("list", "retrieve", "me")
+        action_list = ("list", "retrieve", "me",)
         if self.action in action_list:
             return UserListRetrieveSerializer
         return UserCreationSerializer
 
     def get_permissions(self):
-        if self.action == "list" or self.action == "create":
+        action_list = ("list", "create",)
+        if self.action in action_list:
             permissions = [AllowAny]
         else:
             permissions = [IsAuthenticated]
@@ -43,18 +48,54 @@ class UserCreateListRetrieveViewSet(mixins.CreateModelMixin,
 
     @action(detail=False, methods=["post"])
     def set_password(self, request):
-        serializer = PasswordChangeSerializer(data=request.data)
+        serializer = PasswordChangeSerializer(
+            data=request.data, context={"request": request}
+        )
         serializer.is_valid(raise_exception=True)
-        current_password = serializer.validated_data.get(  # type:ignore
-            "current_password")
-        if request.user.check_password(current_password):
-            new_password = serializer.validated_data.get(  # type:ignore
-                "new_password")
-            request.user.set_password(new_password)
-            request.user.save()
-            return Response(status=status.HTTP_204_NO_CONTENT)
-        err_msg = {"current_password": "Wrong password."}
-        return Response(err_msg, status=status.HTTP_400_BAD_REQUEST)
+        new_password = serializer.validated_data.get(  # type:ignore
+            "new_password")
+        request.user.set_password(new_password)
+        request.user.save()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @action(detail=False, methods=["get"])
+    def subcriptions(self, request):
+        queryset = request.user.users_followed.all()
+        serializer = SubscriptionSerializer(queryset, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=["post"])
+    def subscribe(self, request, pk):
+        user_to_subscribe = get_object_or_404(User, pk=pk)
+        err_msg = {}
+
+        if user_to_subscribe is request.user:
+            err_msg = {"errors": "Can't subscribe to yourself."}
+
+        if request.user.users_followed.filter(pk=user_to_subscribe.pk).exists():
+            err_msg = {"errors": "This user is followed already."}
+
+        if err_msg:
+            return Response(err_msg, status=status.HTTP_400_BAD_REQUEST)
+
+        request.user.users_followed.add(user_to_subscribe)
+        serializer = SubscriptionSerializer(user_to_subscribe)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    @subscribe.mapping.delete
+    def unsubscribe(self, request, pk):
+        user_to_unsubscribe = get_object_or_404(User, pk=pk)
+        err_msg = {}
+
+        if not request.user.users_followed.filter(pk=user_to_unsubscribe.pk).exists():
+            err_msg = {
+                "errors": "Can't unsubscribe from user that is not following."}
+
+        if err_msg:
+            return Response(err_msg, status=status.HTTP_400_BAD_REQUEST)
+
+        request.user.users_followed.remove(user_to_unsubscribe)
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class CustomTokenCreateView(TokenCreateView):
@@ -81,3 +122,38 @@ class IngredientReadOnlyViewSet(viewsets.ReadOnlyModelViewSet):
                        CustomOrderedIngredientSearchFilter)
     filterset_fields = ("name",)
     search_fields = ("name",)
+
+
+class RecipeModelViewSet(viewsets.ModelViewSet):
+    http_method_names = ['get', 'post', 'patch', 'delete',]
+
+    def get_queryset(self):
+        prefetch_ingredients = Prefetch(
+            "recipe_ingredients",
+            queryset=RecipeIngredient.objects.select_related(
+                "ingredient__measurement_unit").all()
+        )
+        query = (
+            Recipe.objects
+                  .select_related("author")
+                  .prefetch_related("tags")
+                  .prefetch_related(prefetch_ingredients)
+        )
+        return query
+
+    def get_permissions(self):
+        action_list = ("list", "retrieve",)
+        if self.action in action_list:
+            permissions = [AllowAny]
+        else:
+            permissions = [IsAuthenticated]
+        return [permission() for permission in permissions]
+
+    def get_serializer_class(self):
+        read_actions = ("list", "retrieve",)
+        write_actions = ("post", "patch",)
+        if self.action in read_actions:
+            return RecipeSerializer
+        if self.action in write_actions:
+            return RecipeWriteSerializer
+        return super().get_serializer_class()

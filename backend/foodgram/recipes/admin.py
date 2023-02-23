@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Ingredient, MeasurementUnit, Tag
+from .models import Ingredient, MeasurementUnit, Recipe, Tag
 
 
 class TagAdmin(admin.ModelAdmin):
@@ -40,6 +40,31 @@ class IngredientAdmin(admin.ModelAdmin):
     )
 
 
+class RecipeIngredientInline(admin.TabularInline):
+    model = Recipe.ingredients.through
+    extra = 1
+    autocomplete_fields = ("ingredient",)
+
+
+class RecipeAdmin(admin.ModelAdmin):
+    list_display = (
+        "pk",
+        "author",
+        "name",
+        "image",
+        "text",
+        "cooking_time",
+    )
+    filter_horizontal = (
+        "tags",
+        "ingredients",
+    )
+    inlines = (
+        RecipeIngredientInline,
+    )
+
+
 admin.site.register(Tag, TagAdmin)
 admin.site.register(MeasurementUnit, MeasurementUnitAdmin)
 admin.site.register(Ingredient, IngredientAdmin)
+admin.site.register(Recipe, RecipeAdmin)

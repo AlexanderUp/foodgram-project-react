@@ -3,12 +3,15 @@ from djoser import views as djoser_views
 from rest_framework import routers
 
 from .views import (CustomTokenCreateView, IngredientReadOnlyViewSet,
-                    TagReadOnlyViewSet, UserCreateListRetrieveViewSet)
+                    RecipeModelViewSet, TagReadOnlyViewSet,
+                    UserCreateListRetrieveViewSet)
 
 router = routers.DefaultRouter()
 router.register(r"users", UserCreateListRetrieveViewSet)
 router.register(r"tags", TagReadOnlyViewSet)
 router.register(r"ingredients", IngredientReadOnlyViewSet)
+router.register(r"recipes", RecipeModelViewSet, basename="Recipe")
+
 
 app_name = "api"
 

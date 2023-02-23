@@ -1,8 +1,6 @@
-from django.contrib.auth import get_user_model
+from django.conf import settings
 from django.core.validators import MinValueValidator
 from django.db import models
-
-User = get_user_model()
 
 
 class Tag(models.Model):
@@ -77,68 +75,87 @@ class Ingredient(models.Model):
         )
 
     def __str__(self):
+        return f"{self.name} ({self.measurement_unit})"
+
+
+class Recipe(models.Model):
+    tags = models.ManyToManyField(
+        to=Tag,
+        verbose_name="tags",
+        help_text="Recipe's tags",
+    )
+    author = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="recipes",
+        verbose_name="Author",
+        help_text="Author of the recipe",
+    )
+    ingredients = models.ManyToManyField(
+        to=Ingredient,
+        through="RecipeIngredient",
+        # related_name="ingredient_recipes",
+        verbose_name="ingredients",
+        help_text="Ingredients used",
+    )
+    name = models.CharField(
+        verbose_name="Name",
+        help_text="Recipe's name",
+        max_length=200,
+    )
+    image = models.FileField(
+        upload_to="recipe_images",
+        verbose_name="image",
+        help_text="Recipe image",
+    )
+    text = models.TextField(
+        verbose_name="Text",
+        help_text="Recipe description",
+    )
+    cooking_time = models.PositiveSmallIntegerField(
+        verbose_name="Cooking time",
+        help_text="Time of recipe cooking",
+        validators=(MinValueValidator(1),)
+    )
+
+    class Meta:
+        verbose_name = "Recipe"
+        verbose_name_plural = "Recipes"
+        ordering = ("-pk",)
+
+    def __str__(self):
         return self.name
 
+    def save(self, *args, **kwargs):
+        return super().save(*args, **kwargs)
 
-# class ShoppingCart(models.Model):
-#     # recipes
-#     pass
-
-
-# class Recipe(models.Model):
-#     autor = models.ForeignKey(
-#         User,
-#         on_delete=models.CASCADE,
-#         related_name="recipes",
-#         verbose_name="author",
-#         help_text="Author of the recipe",
-#     )
-#     name = models.CharField(
-#         verbose_name="name",
-#         help_text="Recipe's name",
-#         max_length=200,
-#     )
-#     text = models.CharField(
-#         verbose_name="text",
-#         help_text="Recipe description",
-#         max_length=2000,
-#     )
-#     # ingredients =
-#     cooking_time = models.PositiveSmallIntegerField(
-#         verbose_name="cooking_time",
-#         help_text="Time of recipe cooking",
-#         validators=(MinValueValidator(1),)
-#     )
-#     # image =
-#     # tags =
-#     # favorited_by =
-#     # shopping_cart =
+    def delete(self, *args, **kwargs):
+        self.image.delete()
+        return super().delete(*args, **kwargs)
 
 
-# class RecipeIngredient(models.Model):
-#     recipe = models.ForeignKey(
-#         Recipe,
-#         on_delete=models.CASCADE,
-#         related_name="recipe_ingredients",
-#         verbose_name="recipe",
-#         help_text="Recipe in that ingredient is used",
-#     )
-#     ingredient = models.ForeignKey(
-#         Ingredient,
-#         on_delete=models.CASCADE,
-#         related_name="recipes",  # to be checked
-#         verbose_name="ingredient",
-#         help_text="Ingredient name",
-#     )
-#     amount = models.PositiveSmallIntegerField(
-#         verbose_name="amount",
-#         help_text="Ingredient amount",
-#     )
+class RecipeIngredient(models.Model):
+    recipe = models.ForeignKey(
+        Recipe,
+        on_delete=models.CASCADE,
+        related_name="recipe_ingredients",
+        verbose_name="recipe",
+        help_text="Recipe, using this ingredient",
+    )
+    ingredient = models.ForeignKey(
+        Ingredient,
+        on_delete=models.CASCADE,
+        related_name="recipes",
+        verbose_name="ingredient",
+        help_text="Ingredient, used in recipe",
+    )
+    amount = models.PositiveSmallIntegerField(
+        verbose_name="amount",
+        help_text="Ingredient amount used",
+        validators=(MinValueValidator(1),),
+    )
 
-#     class Meta:
-#         verbose_name = "Recipe Ingredient"
-#         verbose_name_plural = "Recipe Ingredients"
-#         ordering = ("pk",)
-
-#     def __str__(self):
-#         return f"{self.recipe}-{self.ingredient}-{self.amount}"
+    class Meta:
+        verbose_name = "RecipeIngredient"
+        verbose_name_plural = "RecipeIngredients"
+        ordering = ("pk",)
