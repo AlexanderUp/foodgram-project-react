@@ -1,9 +1,12 @@
+import base64
+
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import \
     validate_password as validate_user_password
 from django.core.exceptions import ValidationError
+from django.core.files.base import ContentFile
+from django.core.validators import MinValueValidator
 from rest_framework import serializers
-from rest_framework.response import Response
 
 from recipes.models import (Ingredient, Tag, Recipe,  # isort:skip
                             RecipeIngredient)  # isort:skip
@@ -103,6 +106,17 @@ class PasswordChangeSerializer(serializers.Serializer):
         return data
 
 
+class Base64EncodedImageField(serializers.ImageField):
+
+    def to_internal_value(self, data):
+        if isinstance(data, str) and data.startswith("data:image"):
+            format, datastr = data.split(";base64,")
+            ext = format.split("/")[-1]
+            img = base64.b64decode(datastr)
+            data = ContentFile(img, name="temp." + ext)
+        return super().to_internal_value(data)
+
+
 class TagSerializer(serializers.ModelSerializer):
     class Meta:
         model = Tag
@@ -112,12 +126,6 @@ class TagSerializer(serializers.ModelSerializer):
             "color",
             "slug",
         )
-
-
-class TagListSerializer(serializers.Serializer):
-    tags = serializers.PrimaryKeyRelatedField(
-        queryset=Tag.objects.all(), many=True
-    )
 
 
 class IngredientSerializer(serializers.ModelSerializer):
@@ -148,16 +156,17 @@ class RecipeIngredientReadSerializer(serializers.ModelSerializer):
         )
 
 
-class RecipeIngredientWriteSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = RecipeIngredient
-        fields = (
-            "id",
-            "amount",
-        )
+class RecipeIngredientWriteSerializer(serializers.Serializer):
+    id = serializers.IntegerField(validators=[MinValueValidator(1),])
+    amount = serializers.IntegerField(validators=[MinValueValidator(1),])
+
+    # def validate_id(self, value):
+    #     if not Ingredient.objects.filter(pk=id).exists():
+    #         raise ValidationError("Ingredient does not exist!")
+    #     return value
 
 
-class RecipeSerializer(serializers.ModelSerializer):
+class RecipeReadSerializer(serializers.ModelSerializer):
     tags = TagSerializer(many=True)
     author = UserListRetrieveSerializer()
     ingredients = RecipeIngredientReadSerializer(
@@ -189,8 +198,11 @@ class RecipeSerializer(serializers.ModelSerializer):
 
 class RecipeWriteSerializer(serializers.ModelSerializer):
     author = serializers.HiddenField(default=serializers.CurrentUserDefault())
-    tags = TagListSerializer()
     ingredients = RecipeIngredientWriteSerializer(many=True)
+    tags = serializers.PrimaryKeyRelatedField(
+        queryset=Tag.objects.all(), many=True
+    )
+    image = Base64EncodedImageField()
 
     class Meta:
         model = Recipe
@@ -206,13 +218,15 @@ class RecipeWriteSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         ingredient_data = validated_data.pop("ingredients")
-        tag_ids = validated_data.pop("ingredients")
+        tag_ids = validated_data.pop("tags")
 
         recipe = Recipe.objects.create(**validated_data)
         recipe.tags.set(tag_ids)
 
         recipe_ingredients = []
-        for ingredient_id, amount in ingredient_data.items():
+        for ingredient_dict in ingredient_data:
+            ingredient_id = ingredient_dict["id"]
+            amount = ingredient_dict["amount"]
             ingredient = Ingredient.objects.get(pk=ingredient_id)
             recipe_ingredient = RecipeIngredient(
                 recipe=recipe, ingredient=ingredient, amount=amount
@@ -223,10 +237,10 @@ class RecipeWriteSerializer(serializers.ModelSerializer):
         return recipe
 
 
-class FavoriteRecipeSerializer(RecipeSerializer):
+class FavoriteRecipeSerializer(RecipeReadSerializer):
     image = serializers.SerializerMethodField()
 
-    class Meta(RecipeSerializer.Meta):
+    class Meta(RecipeReadSerializer.Meta):
         fields = (  # type:ignore
             "id",
             "name",

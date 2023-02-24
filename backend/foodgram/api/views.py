@@ -10,12 +10,12 @@ from rest_framework.response import Response
 
 from .filters import CustomOrderedIngredientSearchFilter
 from .serializers import (IngredientSerializer, PasswordChangeSerializer,
-                          RecipeSerializer, RecipeWriteSerializer,
+                          RecipeReadSerializer, RecipeWriteSerializer,
                           SubscriptionSerializer, TagSerializer,
                           UserCreationSerializer, UserListRetrieveSerializer)
 
-from recipes.models import (Ingredient, MeasurementUnit, Recipe,  # isort:skip
-                            RecipeIngredient, Tag)
+from recipes.models import (Ingredient, Recipe, RecipeIngredient,  # isort:skip
+                            Tag)
 
 User = get_user_model()
 
@@ -151,9 +151,16 @@ class RecipeModelViewSet(viewsets.ModelViewSet):
 
     def get_serializer_class(self):
         read_actions = ("list", "retrieve",)
-        write_actions = ("post", "patch",)
+        write_actions = ("create", "partial_update",)
         if self.action in read_actions:
-            return RecipeSerializer
+            return RecipeReadSerializer
         if self.action in write_actions:
             return RecipeWriteSerializer
         return super().get_serializer_class()
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        instance = serializer.save()
+        response_serializer = RecipeReadSerializer(instance)
+        return Response(response_serializer.data, status=status.HTTP_201_CREATED)

@@ -159,3 +159,6 @@ class RecipeIngredient(models.Model):
         verbose_name = "RecipeIngredient"
         verbose_name_plural = "RecipeIngredients"
         ordering = ("pk",)
+
+    def __str__(self):
+        return f"{self.recipe}-({self.ingredient})-({self.amount})"
