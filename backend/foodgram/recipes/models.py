@@ -126,13 +126,6 @@ class Recipe(models.Model):
     def __str__(self):
         return self.name
 
-    def save(self, *args, **kwargs):
-        return super().save(*args, **kwargs)
-
-    def delete(self, *args, **kwargs):
-        self.image.delete()
-        return super().delete(*args, **kwargs)
-
 
 class RecipeIngredient(models.Model):
     recipe = models.ForeignKey(
