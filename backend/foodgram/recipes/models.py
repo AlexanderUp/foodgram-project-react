@@ -94,7 +94,6 @@ class Recipe(models.Model):
     ingredients = models.ManyToManyField(
         to=Ingredient,
         through="RecipeIngredient",
-        # related_name="ingredient_recipes",
         verbose_name="ingredients",
         help_text="Ingredients used",
     )
@@ -154,4 +153,4 @@ class RecipeIngredient(models.Model):
         ordering = ("pk",)
 
     def __str__(self):
-        return f"{self.recipe}-({self.ingredient})-({self.amount})"
+        return f"{self.recipe}-({self.ingredient} - {self.amount})"

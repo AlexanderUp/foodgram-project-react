@@ -1,4 +1,5 @@
 import base64
+import os
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import \
@@ -6,6 +7,7 @@ from django.contrib.auth.password_validation import \
 from django.core.exceptions import ValidationError
 from django.core.files.base import ContentFile
 from django.core.validators import MinValueValidator
+from django.shortcuts import get_list_or_404
 from rest_framework import serializers
 
 from recipes.models import (Ingredient, Tag, Recipe,  # isort:skip
@@ -113,7 +115,8 @@ class Base64EncodedImageField(serializers.ImageField):
             format, datastr = data.split(";base64,")
             ext = format.split("/")[-1]
             img = base64.b64decode(datastr)
-            data = ContentFile(img, name="temp." + ext)
+            name = os.urandom(8).hex()
+            data = ContentFile(img, name=f"{name}." + ext)
         return super().to_internal_value(data)
 
 
@@ -235,6 +238,33 @@ class RecipeWriteSerializer(serializers.ModelSerializer):
 
         RecipeIngredient.objects.bulk_create(recipe_ingredients)
         return recipe
+
+    def update(self, instance, validated_data):
+        instance.image = validated_data["image"]
+        instance.name = validated_data["name"]
+        instance.text = validated_data["text"]
+        instance.cooking_time = validated_data["cooking_time"]
+        instance.save()
+
+        tag_ids = validated_data["tags"]
+        instance.tags.set(tag_ids, clear=True)
+
+        ingredient_data = validated_data["ingredients"]
+        for ingredient in instance.recipe_ingredients.all():
+            ingredient.delete()
+
+        recipe_ingredients = []
+        for ingredient_dict in ingredient_data:
+            ingredient_id = ingredient_dict["id"]
+            amount = ingredient_dict["amount"]
+            ingredient = Ingredient.objects.get(pk=ingredient_id)
+            recipe_ingredient = RecipeIngredient(
+                recipe=instance, ingredient=ingredient, amount=amount
+            )
+            recipe_ingredients.append(recipe_ingredient)
+
+        RecipeIngredient.objects.bulk_create(recipe_ingredients)
+        return instance
 
 
 class FavoriteRecipeSerializer(RecipeReadSerializer):

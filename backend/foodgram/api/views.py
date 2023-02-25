@@ -1,5 +1,5 @@
 from django.contrib.auth import get_user_model
-from django.db.models import Prefetch
+from django.db.models import Prefetch, Q
 from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
 from djoser.views import TokenCreateView
@@ -9,6 +9,8 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
 from .filters import CustomOrderedIngredientSearchFilter
+from .pagination_classes import CustomRecipePaginationClass
+from .permissions import RecipeOwnerPermission
 from .serializers import (IngredientSerializer, PasswordChangeSerializer,
                           RecipeReadSerializer, RecipeWriteSerializer,
                           SubscriptionSerializer, TagSerializer,
@@ -126,6 +128,9 @@ class IngredientReadOnlyViewSet(viewsets.ReadOnlyModelViewSet):
 
 class RecipeModelViewSet(viewsets.ModelViewSet):
     http_method_names = ['get', 'post', 'patch', 'delete',]
+    pagination_class = CustomRecipePaginationClass
+    filter_backends = (DjangoFilterBackend, )
+    filterset_fields = ("author", )
 
     def get_queryset(self):
         prefetch_ingredients = Prefetch(
@@ -139,6 +144,11 @@ class RecipeModelViewSet(viewsets.ModelViewSet):
                   .prefetch_related("tags")
                   .prefetch_related(prefetch_ingredients)
         )
+        tag_slugs = self.request.query_params.getlist("tags")  # type:ignore
+        q_object = Q()
+        for tag_slug in tag_slugs:
+            q_object |= Q(tags__slug=tag_slug)
+        query = query.filter(q_object)
         return query
 
     def get_permissions(self):
@@ -146,7 +156,7 @@ class RecipeModelViewSet(viewsets.ModelViewSet):
         if self.action in action_list:
             permissions = [AllowAny]
         else:
-            permissions = [IsAuthenticated]
+            permissions = [IsAuthenticated, RecipeOwnerPermission]
         return [permission() for permission in permissions]
 
     def get_serializer_class(self):
@@ -164,3 +174,16 @@ class RecipeModelViewSet(viewsets.ModelViewSet):
         instance = serializer.save()
         response_serializer = RecipeReadSerializer(instance)
         return Response(response_serializer.data, status=status.HTTP_201_CREATED)
+
+    def partial_update(self, request, *args, **kwargs):
+        return self.update(request, *args, **kwargs)
+
+    def update(self, request, *args, **kwargs):
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data)
+        serializer.is_valid(raise_exception=True)
+        instance = serializer.save()
+        if getattr(instance, '_prefetched_objects_cache', None):
+            instance._prefetched_objects_cache = {}
+        response_serializer = RecipeReadSerializer(instance)
+        return Response(response_serializer.data, status=status.HTTP_200_OK)
