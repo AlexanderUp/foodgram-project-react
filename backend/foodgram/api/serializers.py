@@ -7,9 +7,10 @@ from django.contrib.auth.password_validation import \
 from django.core.exceptions import ValidationError
 from django.core.files.base import ContentFile
 from django.core.validators import MinValueValidator
-from django.shortcuts import get_list_or_404
+from django.db import transaction
 from rest_framework import serializers
 
+from .utils import add_ingredients_to_recipe  # isort:skip
 from recipes.models import (Ingredient, Tag, Recipe,  # isort:skip
                             RecipeIngredient)  # isort:skip
 
@@ -160,13 +161,8 @@ class RecipeIngredientReadSerializer(serializers.ModelSerializer):
 
 
 class RecipeIngredientWriteSerializer(serializers.Serializer):
-    id = serializers.IntegerField(validators=[MinValueValidator(1),])
+    id = serializers.PrimaryKeyRelatedField(queryset=Ingredient.objects.all())
     amount = serializers.IntegerField(validators=[MinValueValidator(1),])
-
-    # def validate_id(self, value):
-    #     if not Ingredient.objects.filter(pk=id).exists():
-    #         raise ValidationError("Ingredient does not exist!")
-    #     return value
 
 
 class RecipeReadSerializer(serializers.ModelSerializer):
@@ -223,47 +219,29 @@ class RecipeWriteSerializer(serializers.ModelSerializer):
         ingredient_data = validated_data.pop("ingredients")
         tag_ids = validated_data.pop("tags")
 
-        recipe = Recipe.objects.create(**validated_data)
-        recipe.tags.set(tag_ids)
-
-        recipe_ingredients = []
-        for ingredient_dict in ingredient_data:
-            ingredient_id = ingredient_dict["id"]
-            amount = ingredient_dict["amount"]
-            ingredient = Ingredient.objects.get(pk=ingredient_id)
-            recipe_ingredient = RecipeIngredient(
-                recipe=recipe, ingredient=ingredient, amount=amount
-            )
-            recipe_ingredients.append(recipe_ingredient)
-
-        RecipeIngredient.objects.bulk_create(recipe_ingredients)
-        return recipe
+        with transaction.atomic():
+            recipe = Recipe.objects.create(**validated_data)
+            recipe.tags.set(tag_ids)
+            add_ingredients_to_recipe(recipe, ingredient_data)
+            return recipe
 
     def update(self, instance, validated_data):
         instance.image = validated_data["image"]
         instance.name = validated_data["name"]
         instance.text = validated_data["text"]
         instance.cooking_time = validated_data["cooking_time"]
-        instance.save()
 
         tag_ids = validated_data["tags"]
-        instance.tags.set(tag_ids, clear=True)
-
         ingredient_data = validated_data["ingredients"]
-        for ingredient in instance.recipe_ingredients.all():
-            ingredient.delete()
 
-        recipe_ingredients = []
-        for ingredient_dict in ingredient_data:
-            ingredient_id = ingredient_dict["id"]
-            amount = ingredient_dict["amount"]
-            ingredient = Ingredient.objects.get(pk=ingredient_id)
-            recipe_ingredient = RecipeIngredient(
-                recipe=instance, ingredient=ingredient, amount=amount
-            )
-            recipe_ingredients.append(recipe_ingredient)
+        with transaction.atomic():
+            instance.save()
+            instance.tags.set(tag_ids, clear=True)
 
-        RecipeIngredient.objects.bulk_create(recipe_ingredients)
+            for ingredient in instance.recipe_ingredients.all():
+                ingredient.delete()
+
+            add_ingredients_to_recipe(instance, ingredient_data)
         return instance
 
 
