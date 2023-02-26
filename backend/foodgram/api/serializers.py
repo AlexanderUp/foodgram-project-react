@@ -261,7 +261,7 @@ class FavoriteRecipeSerializer(RecipeReadSerializer):
 
 
 class SubscriptionSerializer(UserListRetrieveSerializer):
-    recipes = FavoriteRecipeSerializer(many=True)
+    recipes = serializers.SerializerMethodField()
     recipes_count = serializers.SerializerMethodField()
 
     class Meta(UserListRetrieveSerializer.Meta):
@@ -270,6 +270,12 @@ class SubscriptionSerializer(UserListRetrieveSerializer):
             "recipes",
             "recipes_count",
         )  # type:ignore
+
+    def get_recipes(self, obj):
+        max_recipes = self.context.get("recipes_limit")
+        if max_recipes:
+            return FavoriteRecipeSerializer(obj.recipes.all()[:max_recipes], many=True).data
+        return FavoriteRecipeSerializer(obj.recipes.all(), many=True).data
 
     def get_recipes_count(self, obj):
         return obj.recipes.count()

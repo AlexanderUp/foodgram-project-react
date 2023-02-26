@@ -77,7 +77,16 @@ class UserCreateListRetrieveViewSet(mixins.CreateModelMixin,
         # all users in queryset are followed, no need to annotate with explicit query
         queryset = queryset.annotate(is_subscribed=Value(True))
         paginated_queryset = self.paginate_queryset(queryset)
-        serializer = SubscriptionSerializer(paginated_queryset, many=True)
+
+        recipes_limit = self.request.query_params.get(  # type:ignore
+            "recipes_limit")
+        context = {}
+        if recipes_limit:
+            context.update({"recipes_limit": int(recipes_limit)})
+
+        serializer = SubscriptionSerializer(
+            paginated_queryset, many=True, context=context
+        )
         return self.get_paginated_response(serializer.data)
 
     @action(detail=True, methods=["post"])
@@ -98,13 +107,17 @@ class UserCreateListRetrieveViewSet(mixins.CreateModelMixin,
         # need to refresh annotated field through calling 'self.get_queryset()'
         user_to_subscribe = self.get_object()
 
-        serializer = SubscriptionSerializer(user_to_subscribe)
+        recipes_limit = self.request.query_params.get(  # type:ignore
+            "recipes_limit")
+        context = {}
+        if recipes_limit:
+            context.update({"recipes_limit": int(recipes_limit)})
+        serializer = SubscriptionSerializer(user_to_subscribe, context=context)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     @subscribe.mapping.delete
     def unsubscribe(self, request, pk):
         user_to_unsubscribe = get_object_or_404(User, pk=pk)
-        user_to_unsubscribe = self.get_object()
         err_msg = {}
 
         if not request.user.users_followed.filter(pk=user_to_unsubscribe.pk).exists():
@@ -114,8 +127,6 @@ class UserCreateListRetrieveViewSet(mixins.CreateModelMixin,
         if err_msg:
             return Response(err_msg, status=status.HTTP_400_BAD_REQUEST)
 
-        # need to refresh annotated field through calling 'self.get_queryset()'
-        user_to_unsubscribe = self.get_object()
         request.user.users_followed.remove(user_to_unsubscribe)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -158,10 +169,23 @@ class RecipeModelViewSet(viewsets.ModelViewSet):
             queryset=RecipeIngredient.objects.select_related(
                 "ingredient__measurement_unit").all()
         )
+
+        if self.request.user.is_anonymous:
+            authors = User.objects.annotate(is_subscribed=Value(False))
+        else:
+            authors = User.objects.annotate(
+                is_subscribed=Exists(
+                    self.request.user.users_followed.filter(  # type:ignore
+                        pk=OuterRef("pk")
+                    )
+                ))
+        prefetch_authors = Prefetch(
+            "author", queryset=authors
+        )
         query = (
             Recipe.objects
-                  .select_related("author")
                   .prefetch_related("tags")
+                  .prefetch_related(prefetch_authors)
                   .prefetch_related(prefetch_ingredients)
         )
         tag_slugs = self.request.query_params.getlist("tags")  # type:ignore
@@ -207,3 +231,15 @@ class RecipeModelViewSet(viewsets.ModelViewSet):
             instance._prefetched_objects_cache = {}
         response_serializer = RecipeReadSerializer(instance)
         return Response(response_serializer.data, status=status.HTTP_200_OK)
+
+    @action(detail=False, methods=["get"])
+    def favorite_list(self, request):
+        pass
+
+    @action(detail=True, methods=["post"])
+    def favorite(self, request, pk):
+        pass
+
+    @favorite.mapping.delete
+    def unfavorite(self, request, pk):
+        pass
