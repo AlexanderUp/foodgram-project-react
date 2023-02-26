@@ -39,7 +39,7 @@ class UserListRetrieveSerializer(UserCustomBaseSerializer):
         )  # type:ignore
 
     def get_is_subscribed(self, obj):
-        return False
+        return obj.is_subscribed
 
 
 class UserCreationSerializer(UserCustomBaseSerializer):
@@ -260,26 +260,16 @@ class FavoriteRecipeSerializer(RecipeReadSerializer):
         return obj.image.url
 
 
-class SubscriptionSerializer(serializers.ModelSerializer):
-    is_subscribed = serializers.SerializerMethodField()
+class SubscriptionSerializer(UserListRetrieveSerializer):
     recipes = FavoriteRecipeSerializer(many=True)
     recipes_count = serializers.SerializerMethodField()
 
-    class Meta:
-        model = User
+    class Meta(UserListRetrieveSerializer.Meta):
         fields = (
-            "email",
-            "id",
-            "username",
-            "first_name",
-            "last_name",
-            "is_subscribed",
+            *UserListRetrieveSerializer.Meta.fields,  # type:ignore
             "recipes",
             "recipes_count",
-        )
+        )  # type:ignore
 
-    def get_is_subscribed(self, obj):
-        return False
-
-    def get_recipe_count(self, obj):
+    def get_recipes_count(self, obj):
         return obj.recipes.count()

@@ -1,5 +1,5 @@
 from django.contrib.auth import get_user_model
-from django.db.models import Prefetch, Q
+from django.db.models import Exists, OuterRef, Prefetch, Q, Value
 from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
 from djoser.views import TokenCreateView
@@ -9,7 +9,7 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
 from .filters import CustomOrderedIngredientSearchFilter
-from .pagination_classes import CustomRecipePaginationClass
+from .pagination_classes import CustomPageSizeLimitPaginationClass
 from .permissions import RecipeOwnerPermission
 from .serializers import (IngredientSerializer, PasswordChangeSerializer,
                           RecipeReadSerializer, RecipeWriteSerializer,
@@ -26,7 +26,18 @@ class UserCreateListRetrieveViewSet(mixins.CreateModelMixin,
                                     mixins.ListModelMixin,
                                     mixins.RetrieveModelMixin,
                                     viewsets.GenericViewSet):
-    queryset = User.objects.all()
+    pagination_class = CustomPageSizeLimitPaginationClass
+
+    def get_queryset(self):
+        queryset = User.objects.annotate(
+            is_subscribed=Exists(
+                self.request.user.users_followed.filter(  # type:ignore
+                    pk=OuterRef("pk")
+                )
+            ))
+        # Ensure queryset is re-evaluated on each request.
+        queryset = queryset.all()
+        return queryset
 
     def get_serializer_class(self):
         action_list = ("list", "retrieve", "me",)
@@ -61,17 +72,20 @@ class UserCreateListRetrieveViewSet(mixins.CreateModelMixin,
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(detail=False, methods=["get"])
-    def subcriptions(self, request):
+    def subscriptions(self, request):
         queryset = request.user.users_followed.all()
-        serializer = SubscriptionSerializer(queryset, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        # all users in queryset are followed, no need to annotate with explicit query
+        queryset = queryset.annotate(is_subscribed=Value(True))
+        paginated_queryset = self.paginate_queryset(queryset)
+        serializer = SubscriptionSerializer(paginated_queryset, many=True)
+        return self.get_paginated_response(serializer.data)
 
     @action(detail=True, methods=["post"])
     def subscribe(self, request, pk):
         user_to_subscribe = get_object_or_404(User, pk=pk)
         err_msg = {}
 
-        if user_to_subscribe is request.user:
+        if user_to_subscribe == request.user:
             err_msg = {"errors": "Can't subscribe to yourself."}
 
         if request.user.users_followed.filter(pk=user_to_subscribe.pk).exists():
@@ -81,12 +95,16 @@ class UserCreateListRetrieveViewSet(mixins.CreateModelMixin,
             return Response(err_msg, status=status.HTTP_400_BAD_REQUEST)
 
         request.user.users_followed.add(user_to_subscribe)
+        # need to refresh annotated field through calling 'self.get_queryset()'
+        user_to_subscribe = self.get_object()
+
         serializer = SubscriptionSerializer(user_to_subscribe)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     @subscribe.mapping.delete
     def unsubscribe(self, request, pk):
         user_to_unsubscribe = get_object_or_404(User, pk=pk)
+        user_to_unsubscribe = self.get_object()
         err_msg = {}
 
         if not request.user.users_followed.filter(pk=user_to_unsubscribe.pk).exists():
@@ -96,6 +114,8 @@ class UserCreateListRetrieveViewSet(mixins.CreateModelMixin,
         if err_msg:
             return Response(err_msg, status=status.HTTP_400_BAD_REQUEST)
 
+        # need to refresh annotated field through calling 'self.get_queryset()'
+        user_to_unsubscribe = self.get_object()
         request.user.users_followed.remove(user_to_unsubscribe)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -128,7 +148,7 @@ class IngredientReadOnlyViewSet(viewsets.ReadOnlyModelViewSet):
 
 class RecipeModelViewSet(viewsets.ModelViewSet):
     http_method_names = ['get', 'post', 'patch', 'delete',]
-    pagination_class = CustomRecipePaginationClass
+    pagination_class = CustomPageSizeLimitPaginationClass
     filter_backends = (DjangoFilterBackend, )
     filterset_fields = ("author", )
 

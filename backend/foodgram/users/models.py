@@ -19,9 +19,6 @@ class User(AbstractUser):
     users_followed = models.ManyToManyField(
         to="self",
         symmetrical=False,
-        related_name="favorite_users",
-        verbose_name="users_followed",
-        help_text="Users that are followed",
     )
     shopping_cart = models.ManyToManyField(
         to=Recipe,

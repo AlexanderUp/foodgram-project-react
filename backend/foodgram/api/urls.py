@@ -7,7 +7,7 @@ from .views import (CustomTokenCreateView, IngredientReadOnlyViewSet,
                     UserCreateListRetrieveViewSet)
 
 router = routers.DefaultRouter()
-router.register(r"users", UserCreateListRetrieveViewSet)
+router.register(r"users", UserCreateListRetrieveViewSet, basename="User")
 router.register(r"tags", TagReadOnlyViewSet)
 router.register(r"ingredients", IngredientReadOnlyViewSet)
 router.register(r"recipes", RecipeModelViewSet, basename="Recipe")
