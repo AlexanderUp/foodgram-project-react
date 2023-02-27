@@ -11,10 +11,11 @@ from rest_framework.response import Response
 from .filters import CustomOrderedIngredientSearchFilter
 from .pagination_classes import CustomPageSizeLimitPaginationClass
 from .permissions import RecipeOwnerPermission
-from .serializers import (IngredientSerializer, PasswordChangeSerializer,
-                          RecipeReadSerializer, RecipeWriteSerializer,
-                          SubscriptionSerializer, TagSerializer,
-                          UserCreationSerializer, UserListRetrieveSerializer)
+from .serializers import (FavoriteRecipeSerializer, IngredientSerializer,
+                          PasswordChangeSerializer, RecipeReadSerializer,
+                          RecipeWriteSerializer, SubscriptionSerializer,
+                          TagSerializer, UserCreationSerializer,
+                          UserListRetrieveSerializer)
 
 from recipes.models import (Ingredient, Recipe, RecipeIngredient,  # isort:skip
                             Tag)
@@ -161,7 +162,7 @@ class RecipeModelViewSet(viewsets.ModelViewSet):
     http_method_names = ['get', 'post', 'patch', 'delete',]
     pagination_class = CustomPageSizeLimitPaginationClass
     filter_backends = (DjangoFilterBackend, )
-    filterset_fields = ("author", )
+    filterset_fields = ("author")
 
     def get_queryset(self):
         prefetch_ingredients = Prefetch(
@@ -179,15 +180,24 @@ class RecipeModelViewSet(viewsets.ModelViewSet):
                         pk=OuterRef("pk")
                     )
                 ))
-        prefetch_authors = Prefetch(
-            "author", queryset=authors
-        )
+        prefetch_authors = Prefetch("author", queryset=authors)
         query = (
             Recipe.objects
                   .prefetch_related("tags")
                   .prefetch_related(prefetch_authors)
                   .prefetch_related(prefetch_ingredients)
         )
+
+        if self.request.user.is_anonymous:
+            query = query.annotate(is_favorited=Value(False))
+        else:
+            query = query.annotate(
+                is_favorited=Exists(
+                    self.request.user.favorite_recipes.filter(  # type:ignore
+                        pk=OuterRef("pk")
+                    ))
+            )
+
         tag_slugs = self.request.query_params.getlist("tags")  # type:ignore
         q_object = Q()
         for tag_slug in tag_slugs:
@@ -232,14 +242,32 @@ class RecipeModelViewSet(viewsets.ModelViewSet):
         response_serializer = RecipeReadSerializer(instance)
         return Response(response_serializer.data, status=status.HTTP_200_OK)
 
-    @action(detail=False, methods=["get"])
+    @action(detail=False, methods=["get"], url_path="favorite")
     def favorite_list(self, request):
-        pass
+        serializer = FavoriteRecipeSerializer(
+            request.user.favorite_recipes.all(), many=True
+        )
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=["post"])
     def favorite(self, request, pk):
-        pass
+        recipe = get_object_or_404(Recipe, pk=pk)
+        err_msg = {}
+        if request.user.favorite_recipes.filter(pk=recipe.pk).exists():
+            err_msg.update({"errors": "Recipe already in favorites."})
+        if err_msg:
+            return Response(err_msg, status=status.HTTP_400_BAD_REQUEST)
+        request.user.favorite_recipes.add(recipe)
+        serializer = FavoriteRecipeSerializer(recipe)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     @favorite.mapping.delete
     def unfavorite(self, request, pk):
-        pass
+        recipe = get_object_or_404(Recipe, pk=pk)
+        err_msg = {}
+        if not request.user.favorite_recipes.filter(pk=recipe.pk).exists():
+            err_msg.update({"errors": "No such recipe in favorites."})
+        if err_msg:
+            return Response(err_msg, status=status.HTTP_400_BAD_REQUEST)
+        request.user.favorite_recipes.remove(recipe)
+        return Response(status=status.HTTP_204_NO_CONTENT)
