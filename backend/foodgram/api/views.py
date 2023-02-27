@@ -198,6 +198,16 @@ class RecipeModelViewSet(viewsets.ModelViewSet):
                     ))
             )
 
+        if self.request.user.is_anonymous:
+            query = query.annotate(is_in_shopping_cart=Value(False))
+        else:
+            query = query.annotate(
+                is_in_shopping_cart=Exists(
+                    self.request.user.shopping_cart.filter(  # type:ignore
+                        pk=OuterRef("pk")
+                    ))
+            )
+
         tag_slugs = self.request.query_params.getlist("tags")  # type:ignore
         q_object = Q()
         for tag_slug in tag_slugs:
@@ -209,11 +219,11 @@ class RecipeModelViewSet(viewsets.ModelViewSet):
         if is_favorited_param:
             q_object &= Q(is_favorited=is_favorited_param)
 
-        # is_in_shopping_cart_param = self.request.query_params.get(  # type:ignore
-        #     "is_in_shopping_cart")
-        # print("!!!!!!!!!", is_in_shopping_cart_param)
-        # if is_in_shopping_cart_param:
-        #     q_object &= Q(is_in_shopping_cart=bool(is_in_shopping_cart_param))
+        is_in_shopping_cart_param = self.request.query_params.get(  # type:ignore
+            "is_in_shopping_cart", 0)
+        is_in_shopping_cart_param = bool(int(is_in_shopping_cart_param))
+        if is_in_shopping_cart_param:
+            q_object &= Q(is_in_shopping_cart=is_in_shopping_cart_param)
 
         query = query.filter(q_object)
         return query
@@ -283,4 +293,35 @@ class RecipeModelViewSet(viewsets.ModelViewSet):
         if err_msg:
             return Response(err_msg, status=status.HTTP_400_BAD_REQUEST)
         request.user.favorite_recipes.remove(recipe)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @action(detail=False, methods=["get"], url_path="show_shopping_cart")
+    def show_shopping_cart(self, request):
+        queryset = request.user.shopping_cart.all()
+        serializer = FavoriteRecipeSerializer(queryset, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    @action(detail=False, methods=["get"], url_path="download_shopping_cart")
+    def download_shopping_cart(self, request):
+        pass
+
+    @action(detail=True, methods=["post"])
+    def shopping_cart(self, request, pk):
+        recipe = get_object_or_404(Recipe, pk=pk)
+        err_msg = {}
+        if request.user.shopping_cart.filter(pk=recipe.pk).exists():
+            err_msg.update({"errors": "Recipe already in shopping_cart."})
+            return Response(err_msg, status=status.HTTP_400_BAD_REQUEST)
+        request.user.shopping_cart.add(recipe)
+        serializer = FavoriteRecipeSerializer(recipe)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    @shopping_cart.mapping.delete
+    def shopping_cart_delete(self, request, pk):
+        recipe = get_object_or_404(Recipe, pk=pk)
+        err_msg = {}
+        if not request.user.shopping_cart.filter(pk=recipe.pk).exists():
+            err_msg.update({"errors": "No such recipe in shopping cart."})
+            return Response(err_msg, status=status.HTTP_400_BAD_REQUEST)
+        request.user.shopping_cart.remove(recipe)
         return Response(status=status.HTTP_204_NO_CONTENT)

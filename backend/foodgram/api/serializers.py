@@ -192,7 +192,7 @@ class RecipeReadSerializer(serializers.ModelSerializer):
         return obj.is_favorited
 
     def get_is_in_shopping_cart(self, obj):
-        pass
+        return obj.is_in_shopping_cart
 
 
 class RecipeWriteSerializer(serializers.ModelSerializer):
