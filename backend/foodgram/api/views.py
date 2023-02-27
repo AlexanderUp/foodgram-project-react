@@ -1,9 +1,14 @@
+import csv
+from collections import defaultdict
+
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.db.models import Exists, OuterRef, Prefetch, Q, Value
+from django.http.response import FileResponse
 from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
 from djoser.views import TokenCreateView
-from rest_framework import filters, mixins, status, viewsets
+from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
@@ -30,12 +35,17 @@ class UserCreateListRetrieveViewSet(mixins.CreateModelMixin,
     pagination_class = CustomPageSizeLimitPaginationClass
 
     def get_queryset(self):
-        queryset = User.objects.annotate(
-            is_subscribed=Exists(
-                self.request.user.users_followed.filter(  # type:ignore
-                    pk=OuterRef("pk")
-                )
-            ))
+        if self.request.user.is_anonymous:
+            queryset = User.objects.annotate(
+                is_subscribed=Value(False)
+            )
+        else:
+            queryset = User.objects.annotate(
+                is_subscribed=Exists(
+                    self.request.user.users_followed.filter(  # type:ignore
+                        pk=OuterRef("pk")
+                    )
+                ))
         # Ensure queryset is re-evaluated on each request.
         queryset = queryset.all()
         return queryset
@@ -57,6 +67,7 @@ class UserCreateListRetrieveViewSet(mixins.CreateModelMixin,
     @action(detail=False, methods=["get"])
     def me(self, request):
         serializer_class = self.get_serializer_class()
+        request.user.is_subscribed = False
         serializer = serializer_class(request.user)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -303,7 +314,29 @@ class RecipeModelViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=["get"], url_path="download_shopping_cart")
     def download_shopping_cart(self, request):
-        pass
+        ingredients = Prefetch(
+            "recipe_ingredients",
+            queryset=(
+                RecipeIngredient.objects.select_related(
+                    "ingredient", "ingredient__measurement_unit").all()
+            )
+        )
+        recipes = request.user.shopping_cart.prefetch_related(
+            ingredients).all()
+        cart = defaultdict(int)
+        for recipe in recipes:
+            for recipe_ingredient in recipe.recipe_ingredients.all():
+                recipe_key = str(recipe_ingredient.ingredient).capitalize()
+                cart[recipe_key] += recipe_ingredient.amount
+
+        path_to_file = settings.MEDIA_ROOT / "shopping_cart_files" / "cart.csv"
+
+        with open(path_to_file, "w", encoding="utf-8") as source:
+            writer = csv.writer(source)
+            writer.writerow(["ingredient", "amount"])
+            for ingredient, amount in cart.items():
+                writer.writerow([ingredient, amount])
+        return FileResponse(open(path_to_file, "rb"), status=status.HTTP_200_OK)
 
     @action(detail=True, methods=["post"])
     def shopping_cart(self, request, pk):
