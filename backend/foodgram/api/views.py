@@ -162,7 +162,7 @@ class RecipeModelViewSet(viewsets.ModelViewSet):
     http_method_names = ['get', 'post', 'patch', 'delete',]
     pagination_class = CustomPageSizeLimitPaginationClass
     filter_backends = (DjangoFilterBackend, )
-    filterset_fields = ("author")
+    filterset_fields = ("author",)
 
     def get_queryset(self):
         prefetch_ingredients = Prefetch(
@@ -202,6 +202,19 @@ class RecipeModelViewSet(viewsets.ModelViewSet):
         q_object = Q()
         for tag_slug in tag_slugs:
             q_object |= Q(tags__slug=tag_slug)
+
+        is_favorited_param = self.request.query_params.get(  # type:ignore
+            "is_favorited", 0)
+        is_favorited_param = bool(int(is_favorited_param))
+        if is_favorited_param:
+            q_object &= Q(is_favorited=is_favorited_param)
+
+        # is_in_shopping_cart_param = self.request.query_params.get(  # type:ignore
+        #     "is_in_shopping_cart")
+        # print("!!!!!!!!!", is_in_shopping_cart_param)
+        # if is_in_shopping_cart_param:
+        #     q_object &= Q(is_in_shopping_cart=bool(is_in_shopping_cart_param))
+
         query = query.filter(q_object)
         return query
 
