@@ -285,9 +285,11 @@ class RecipeModelViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=["get"], url_path="favorite")
     def favorite_list(self, request):
-        serializer = FavoriteRecipeSerializer(
-            request.user.favorite_recipes.all(), many=True
-        )
+        author = request.query_params.get("author")
+        queryset = request.user.favorite_recipes.all()
+        if author:
+            queryset = queryset.filter(author=author)
+        serializer = FavoriteRecipeSerializer(queryset, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=["post"])
