@@ -60,6 +60,7 @@ coverage.xml
 local_settings.py
 db.sqlite3
 db.sqlite3-journal
+db.sqlite3_*
 
 # Flask stuff:
 instance/
@@ -130,3 +131,12 @@ dmypy.json
 
 # .idea
 .idea
+
+# .vscode
+.vscode/
+
+# media
+media/
+
+# static
+static/
