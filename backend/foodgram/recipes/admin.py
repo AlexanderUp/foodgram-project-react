@@ -54,6 +54,8 @@ class RecipeAdmin(admin.ModelAdmin):
         "image",
         "text",
         "cooking_time",
+        "favorite_count",
+        "publication_date",
     )
     filter_horizontal = (
         "tags",
@@ -62,6 +64,16 @@ class RecipeAdmin(admin.ModelAdmin):
     inlines = (
         RecipeIngredientInline,
     )
+    search_fields = (
+        "author__username",
+        "name",
+        "tags__name",
+        "tags__slug",
+    )
+
+    @admin.display(description="Fav count")
+    def favorite_count(self, obj):
+        return obj.following_users.count()
 
 
 admin.site.register(Tag, TagAdmin)

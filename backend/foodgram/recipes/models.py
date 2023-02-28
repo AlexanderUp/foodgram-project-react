@@ -1,6 +1,7 @@
 from django.conf import settings
 from django.core.validators import MinValueValidator
 from django.db import models
+from django.utils import timezone
 
 
 class Tag(models.Model):
@@ -116,11 +117,16 @@ class Recipe(models.Model):
         help_text="Time of recipe cooking",
         validators=(MinValueValidator(1),)
     )
+    publication_date = models.DateTimeField(
+        verbose_name="Publication date",
+        help_text="Date of publication",
+        default=timezone.now,
+    )
 
     class Meta:
         verbose_name = "Recipe"
         verbose_name_plural = "Recipes"
-        ordering = ("-pk",)
+        ordering = ("-publication_date",)
 
     def __str__(self):
         return self.name

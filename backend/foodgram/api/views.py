@@ -329,7 +329,7 @@ class RecipeModelViewSet(viewsets.ModelViewSet):
                 recipe_key = str(recipe_ingredient.ingredient).capitalize()
                 cart[recipe_key] += recipe_ingredient.amount
 
-        path_to_file = settings.MEDIA_ROOT / "shopping_cart_files" / "cart.csv"
+        path_to_file = settings.MEDIA_ROOT / "shopping_cart_files" / "cart.txt"
 
         with open(path_to_file, "w", encoding="utf-8") as source:
             writer = csv.writer(source)
