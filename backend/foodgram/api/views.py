@@ -265,6 +265,12 @@ class RecipeModelViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         instance = serializer.save()
+        instance.author.is_subscribed = request.user.users_followed.filter(
+            pk=instance.author.pk).exists()
+        instance.is_favorited = request.user.favorite_recipes.filter(
+            pk=instance.pk).exists()
+        instance.is_in_shopping_cart = request.user.shopping_cart.filter(
+            pk=instance.pk).exists()
         response_serializer = RecipeReadSerializer(instance)
         return Response(
             response_serializer.data, status=status.HTTP_201_CREATED
@@ -278,6 +284,12 @@ class RecipeModelViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(instance, data=request.data)
         serializer.is_valid(raise_exception=True)
         instance = serializer.save()
+        instance.author.is_subscribed = request.user.users_followed.filter(
+            pk=instance.author.pk).exists()
+        instance.is_favorited = request.user.favorite_recipes.filter(
+            pk=instance.pk).exists()
+        instance.is_in_shopping_cart = request.user.shopping_cart.filter(
+            pk=instance.pk).exists()
         if getattr(instance, '_prefetched_objects_cache', None):
             instance._prefetched_objects_cache = {}
         response_serializer = RecipeReadSerializer(instance)
