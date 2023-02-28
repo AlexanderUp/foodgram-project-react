@@ -103,7 +103,7 @@ class Recipe(models.Model):
         help_text="Recipe's name",
         max_length=200,
     )
-    image = models.FileField(
+    image = models.ImageField(
         upload_to="recipe_images",
         verbose_name="image",
         help_text="Recipe image",

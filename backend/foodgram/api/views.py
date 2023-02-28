@@ -47,8 +47,7 @@ class UserCreateListRetrieveViewSet(mixins.CreateModelMixin,
                     )
                 ))
         # Ensure queryset is re-evaluated on each request.
-        queryset = queryset.all()
-        return queryset
+        return queryset.all()
 
     def get_serializer_class(self):
         action_list = ("list", "retrieve", "me",)
@@ -86,7 +85,8 @@ class UserCreateListRetrieveViewSet(mixins.CreateModelMixin,
     @action(detail=False, methods=["get"])
     def subscriptions(self, request):
         queryset = request.user.users_followed.all()
-        # all users in queryset are followed, no need to annotate with explicit query
+        # all users in queryset are followed,
+        # no need to annotate with explicit query
         queryset = queryset.annotate(is_subscribed=Value(True))
         paginated_queryset = self.paginate_queryset(queryset)
 
@@ -109,7 +109,9 @@ class UserCreateListRetrieveViewSet(mixins.CreateModelMixin,
         if user_to_subscribe == request.user:
             err_msg = {"errors": "Can't subscribe to yourself."}
 
-        if request.user.users_followed.filter(pk=user_to_subscribe.pk).exists():
+        if request.user.users_followed.filter(
+            pk=user_to_subscribe.pk
+        ).exists():
             err_msg = {"errors": "This user is followed already."}
 
         if err_msg:
@@ -132,7 +134,9 @@ class UserCreateListRetrieveViewSet(mixins.CreateModelMixin,
         user_to_unsubscribe = get_object_or_404(User, pk=pk)
         err_msg = {}
 
-        if not request.user.users_followed.filter(pk=user_to_unsubscribe.pk).exists():
+        if not request.user.users_followed.filter(
+            pk=user_to_unsubscribe.pk
+        ).exists():
             err_msg = {
                 "errors": "Can't unsubscribe from user that is not following."}
 
@@ -170,7 +174,7 @@ class IngredientReadOnlyViewSet(viewsets.ReadOnlyModelViewSet):
 
 
 class RecipeModelViewSet(viewsets.ModelViewSet):
-    http_method_names = ['get', 'post', 'patch', 'delete',]
+    http_method_names = ['get', 'post', 'patch', 'delete', ]
     pagination_class = CustomPageSizeLimitPaginationClass
     filter_backends = (DjangoFilterBackend, )
     filterset_fields = ("author",)
@@ -230,14 +234,15 @@ class RecipeModelViewSet(viewsets.ModelViewSet):
         if is_favorited_param:
             q_object &= Q(is_favorited=is_favorited_param)
 
-        is_in_shopping_cart_param = self.request.query_params.get(  # type:ignore
-            "is_in_shopping_cart", 0)
+        is_in_shopping_cart_param = (
+            self.request.query_params.get(  # type:ignore
+                "is_in_shopping_cart", 0)
+        )
         is_in_shopping_cart_param = bool(int(is_in_shopping_cart_param))
         if is_in_shopping_cart_param:
             q_object &= Q(is_in_shopping_cart=is_in_shopping_cart_param)
 
-        query = query.filter(q_object)
-        return query
+        return query.filter(q_object)
 
     def get_permissions(self):
         action_list = ("list", "retrieve",)
@@ -261,7 +266,9 @@ class RecipeModelViewSet(viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
         instance = serializer.save()
         response_serializer = RecipeReadSerializer(instance)
-        return Response(response_serializer.data, status=status.HTTP_201_CREATED)
+        return Response(
+            response_serializer.data, status=status.HTTP_201_CREATED
+        )
 
     def partial_update(self, request, *args, **kwargs):
         return self.update(request, *args, **kwargs)
@@ -336,7 +343,9 @@ class RecipeModelViewSet(viewsets.ModelViewSet):
             writer.writerow(["ingredient", "amount"])
             for ingredient, amount in cart.items():
                 writer.writerow([ingredient, amount])
-        return FileResponse(open(path_to_file, "rb"), status=status.HTTP_200_OK)
+        return FileResponse(
+            open(path_to_file, "rb"), status=status.HTTP_200_OK
+        )
 
     @action(detail=True, methods=["post"])
     def shopping_cart(self, request, pk):

@@ -34,4 +34,6 @@ class CustomOrderedIngredientSearchFilter(SearchFilter):
         query_icontains = (queryset.filter(*search_icontains)
                                    .exclude(*search_istartswith)
                                    .annotate(order_field=Value(2)))
-        return query_istartswith.union(query_icontains).order_by("order_field", "name",)
+        return query_istartswith.union(query_icontains).order_by(
+            "order_field", "name",
+        )

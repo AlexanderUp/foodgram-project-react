@@ -75,6 +75,9 @@ class RecipeAdmin(admin.ModelAdmin):
     def favorite_count(self, obj):
         return obj.following_users.count()
 
+    def get_queryset(self, request):
+        return Recipe.objects.prefetch_related("following_users").all()
+
 
 admin.site.register(Tag, TagAdmin)
 admin.site.register(MeasurementUnit, MeasurementUnitAdmin)

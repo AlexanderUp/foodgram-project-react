@@ -162,7 +162,7 @@ class RecipeIngredientReadSerializer(serializers.ModelSerializer):
 
 class RecipeIngredientWriteSerializer(serializers.Serializer):
     id = serializers.PrimaryKeyRelatedField(queryset=Ingredient.objects.all())
-    amount = serializers.IntegerField(validators=[MinValueValidator(1),])
+    amount = serializers.IntegerField(validators=[MinValueValidator(1), ])
 
 
 class RecipeReadSerializer(serializers.ModelSerializer):
@@ -274,7 +274,9 @@ class SubscriptionSerializer(UserListRetrieveSerializer):
     def get_recipes(self, obj):
         max_recipes = self.context.get("recipes_limit")
         if max_recipes:
-            return FavoriteRecipeSerializer(obj.recipes.all()[:max_recipes], many=True).data
+            return FavoriteRecipeSerializer(
+                obj.recipes.all()[:max_recipes], many=True
+            ).data
         return FavoriteRecipeSerializer(obj.recipes.all(), many=True).data
 
     def get_recipes_count(self, obj):
