@@ -48,14 +48,8 @@ class RecipeIngredientInline(admin.TabularInline):
 
 class RecipeAdmin(admin.ModelAdmin):
     list_display = (
-        "pk",
-        "author",
         "name",
-        "image",
-        "text",
-        "cooking_time",
-        "favorite_count",
-        "publication_date",
+        "author",
     )
     filter_horizontal = (
         "tags",
@@ -70,8 +64,10 @@ class RecipeAdmin(admin.ModelAdmin):
         "tags__name",
         "tags__slug",
     )
+    readonly_fields = (
+        "favorite_count",
+    )
 
-    @admin.display(description="Fav count")
     def favorite_count(self, obj):
         return obj.following_users.count()
 
