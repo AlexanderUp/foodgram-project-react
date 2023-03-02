@@ -140,3 +140,6 @@ media/
 
 # static
 static/
+
+# fixtures files
+fixtures.json
