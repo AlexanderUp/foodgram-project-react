@@ -1,15 +1,12 @@
-import base64
-import os
-
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import \
     validate_password as validate_user_password
 from django.core.exceptions import ValidationError
-from django.core.files.base import ContentFile
 from django.core.validators import MinValueValidator
 from django.db import transaction
 from rest_framework import serializers
 
+from .fields import Base64EncodedImageField  # isort:skip
 from .utils import add_ingredients_to_recipe  # isort:skip
 from recipes.models import (Ingredient, Tag, Recipe,  # isort:skip
                             RecipeIngredient)  # isort:skip
@@ -109,18 +106,6 @@ class PasswordChangeSerializer(serializers.Serializer):
         return data
 
 
-class Base64EncodedImageField(serializers.ImageField):
-
-    def to_internal_value(self, data):
-        if isinstance(data, str) and data.startswith("data:image"):
-            format, datastr = data.split(";base64,")
-            ext = format.split("/")[-1]
-            img = base64.b64decode(datastr)
-            name = os.urandom(8).hex()
-            data = ContentFile(img, name=f"{name}." + ext)
-        return super().to_internal_value(data)
-
-
 class TagSerializer(serializers.ModelSerializer):
     class Meta:
         model = Tag
@@ -215,6 +200,14 @@ class RecipeWriteSerializer(serializers.ModelSerializer):
             "cooking_time",
         )
 
+    def validate_ingredients(self, data):
+        ingredient_id_set = set()
+        for ingredient in data:
+            if ingredient["id"] in ingredient_id_set:
+                raise ValidationError("Duplicated ingredient supplied!")
+            ingredient_id_set.add(ingredient["id"])
+        return data
+
     def create(self, validated_data):
         ingredient_data = validated_data.pop("ingredients")
         tag_ids = validated_data.pop("tags")
@@ -226,21 +219,13 @@ class RecipeWriteSerializer(serializers.ModelSerializer):
             return recipe
 
     def update(self, instance, validated_data):
-        instance.image = validated_data["image"]
-        instance.name = validated_data["name"]
-        instance.text = validated_data["text"]
-        instance.cooking_time = validated_data["cooking_time"]
-
-        tag_ids = validated_data["tags"]
-        ingredient_data = validated_data["ingredients"]
+        tag_ids = validated_data.pop("tags")
+        ingredient_data = validated_data.pop("ingredients")
 
         with transaction.atomic():
-            instance.save()
+            instance = super().update(instance, validated_data)
             instance.tags.set(tag_ids, clear=True)
-
-            for ingredient in instance.recipe_ingredients.all():
-                ingredient.delete()
-
+            instance.recipe_ingredients.all().delete()
             add_ingredients_to_recipe(instance, ingredient_data)
         return instance
 
