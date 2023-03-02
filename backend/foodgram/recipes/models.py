@@ -157,6 +157,12 @@ class RecipeIngredient(models.Model):
         verbose_name = "RecipeIngredient"
         verbose_name_plural = "RecipeIngredients"
         ordering = ("pk",)
+        constraints = (
+            models.UniqueConstraint(
+                fields=("recipe", "ingredient"),
+                name="unique_ingredient_in_recipe",
+            ),
+        )
 
     def __str__(self):
         return f"{self.recipe}-({self.ingredient} - {self.amount})"

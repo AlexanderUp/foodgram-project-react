@@ -1,10 +1,7 @@
-import csv
-from collections import defaultdict
-
-from django.conf import settings
 from django.contrib.auth import get_user_model
-from django.db.models import Exists, OuterRef, Prefetch, Q, Value
-from django.http.response import FileResponse
+from django.db.models import Exists, F, OuterRef, Prefetch, Sum, Q, Value
+from django.db.models.functions import Concat
+from django.http.response import HttpResponse
 from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
 from djoser.views import TokenCreateView
@@ -21,7 +18,9 @@ from .serializers import (FavoriteRecipeSerializer, IngredientSerializer,
                           RecipeWriteSerializer, SubscriptionSerializer,
                           TagSerializer, UserCreationSerializer,
                           UserListRetrieveSerializer)
-
+from .utils import (get_annotated_recipe_instance,
+                    get_shopping_cart_ingredient_list_string,
+                    process_recipe_for_favorite)
 from recipes.models import (Ingredient, Recipe, RecipeIngredient,  # isort:skip
                             Tag)
 
@@ -46,8 +45,7 @@ class UserCreateListRetrieveViewSet(mixins.CreateModelMixin,
                         pk=OuterRef("pk")
                     )
                 ))
-        # Ensure queryset is re-evaluated on each request.
-        return queryset.all()
+        return queryset  # noqa
 
     def get_serializer_class(self):
         action_list = ("list", "retrieve", "me",)
@@ -263,14 +261,7 @@ class RecipeModelViewSet(viewsets.ModelViewSet):
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        instance = serializer.save()
-        instance.author.is_subscribed = request.user.users_followed.filter(
-            pk=instance.author.pk).exists()
-        instance.is_favorited = request.user.favorite_recipes.filter(
-            pk=instance.pk).exists()
-        instance.is_in_shopping_cart = request.user.shopping_cart.filter(
-            pk=instance.pk).exists()
+        instance = get_annotated_recipe_instance(serializer, request)
         response_serializer = RecipeReadSerializer(instance)
         return Response(
             response_serializer.data, status=status.HTTP_201_CREATED
@@ -282,14 +273,7 @@ class RecipeModelViewSet(viewsets.ModelViewSet):
     def update(self, request, *args, **kwargs):
         instance = self.get_object()
         serializer = self.get_serializer(instance, data=request.data)
-        serializer.is_valid(raise_exception=True)
-        instance = serializer.save()
-        instance.author.is_subscribed = request.user.users_followed.filter(
-            pk=instance.author.pk).exists()
-        instance.is_favorited = request.user.favorite_recipes.filter(
-            pk=instance.pk).exists()
-        instance.is_in_shopping_cart = request.user.shopping_cart.filter(
-            pk=instance.pk).exists()
+        instance = get_annotated_recipe_instance(serializer, request)
         if getattr(instance, '_prefetched_objects_cache', None):
             instance._prefetched_objects_cache = {}
         response_serializer = RecipeReadSerializer(instance)
@@ -335,49 +319,32 @@ class RecipeModelViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=["get"], url_path="download_shopping_cart")
     def download_shopping_cart(self, request):
-        ingredients = Prefetch(
-            "recipe_ingredients",
-            queryset=(
-                RecipeIngredient.objects.select_related(
-                    "ingredient", "ingredient__measurement_unit").all()
-            )
-        )
-        recipes = request.user.shopping_cart.prefetch_related(
-            ingredients).all()
-        cart = defaultdict(int)
-        for recipe in recipes:
-            for recipe_ingredient in recipe.recipe_ingredients.all():
-                recipe_key = str(recipe_ingredient.ingredient).capitalize()
-                cart[recipe_key] += recipe_ingredient.amount
+        recipes = request.user.shopping_cart.all()
+        ingredients = (
+            RecipeIngredient.objects
+                            .filter(recipe__in=recipes)
+                            .select_related(
+                                "ingredient", "ingredient__measurement_unit"
+                            ).all())
+        ingredients = ingredients.values("ingredient").annotate(
+            total_amount=Sum("amount")).annotate(
+                ingredient_name=Concat(
+                    F("ingredient__name"),
+                    Value(" ("),
+                    F("ingredient__measurement_unit__name"),
+                    Value(")")
+                )).all()
 
-        path_to_file = settings.MEDIA_ROOT / "shopping_cart_files" / "cart.txt"
-
-        with open(path_to_file, "w", encoding="utf-8") as source:
-            writer = csv.writer(source)
-            writer.writerow(["ingredient", "amount"])
-            for ingredient, amount in cart.items():
-                writer.writerow([ingredient, amount])
-        return FileResponse(
-            open(path_to_file, "rb"), status=status.HTTP_200_OK
-        )
+        content = get_shopping_cart_ingredient_list_string(ingredients)
+        filename = "shopping_cart.txt"
+        response = HttpResponse(content, content_type="text/plain")
+        response['Content-Disposition'] = f'attachment; filename={filename}'
+        return response
 
     @action(detail=True, methods=["post"])
     def shopping_cart(self, request, pk):
-        recipe = get_object_or_404(Recipe, pk=pk)
-        err_msg = {}
-        if request.user.shopping_cart.filter(pk=recipe.pk).exists():
-            err_msg.update({"errors": "Recipe already in shopping_cart."})
-            return Response(err_msg, status=status.HTTP_400_BAD_REQUEST)
-        request.user.shopping_cart.add(recipe)
-        serializer = FavoriteRecipeSerializer(recipe)
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
+        process_recipe_for_favorite(pk, request, FavoriteRecipeSerializer)
 
     @shopping_cart.mapping.delete
     def shopping_cart_delete(self, request, pk):
-        recipe = get_object_or_404(Recipe, pk=pk)
-        err_msg = {}
-        if not request.user.shopping_cart.filter(pk=recipe.pk).exists():
-            err_msg.update({"errors": "No such recipe in shopping cart."})
-            return Response(err_msg, status=status.HTTP_400_BAD_REQUEST)
-        request.user.shopping_cart.remove(recipe)
-        return Response(status=status.HTTP_204_NO_CONTENT)
+        process_recipe_for_favorite(pk, request, FavoriteRecipeSerializer)
