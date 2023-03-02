@@ -17,9 +17,7 @@ def add_ingredients_to_recipe(recipe, ingredient_data):
     RecipeIngredient.objects.bulk_create(recipe_ingredients)
 
 
-def get_annotated_recipe_instance(serializer, request):
-    serializer.is_valid(raise_exception=True)
-    instance = serializer.save()
+def get_annotated_recipe_instance(instance, request):
     instance.author.is_subscribed = request.user.users_followed.filter(
         pk=instance.author.pk).exists()
     instance.is_favorited = request.user.favorite_recipes.filter(
