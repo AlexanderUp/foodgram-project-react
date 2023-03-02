@@ -1,5 +1,5 @@
 from django.contrib.auth import get_user_model
-from django.db.models import Exists, F, OuterRef, Prefetch, Sum, Q, Value
+from django.db.models import Exists, F, OuterRef, Prefetch, Q, Sum, Value
 from django.db.models.functions import Concat
 from django.http.response import HttpResponse
 from django.shortcuts import get_object_or_404
@@ -18,8 +18,7 @@ from .serializers import (FavoriteRecipeSerializer, IngredientSerializer,
                           RecipeWriteSerializer, SubscriptionSerializer,
                           TagSerializer, UserCreationSerializer,
                           UserListRetrieveSerializer)
-from .utils import (get_annotated_recipe_instance,
-                    get_shopping_cart_ingredient_list_string,
+from .utils import (get_shopping_cart_ingredient_list_string,
                     process_recipe_for_favorite)
 from recipes.models import (Ingredient, Recipe, RecipeIngredient,  # isort:skip
                             Tag)
@@ -259,25 +258,8 @@ class RecipeModelViewSet(viewsets.ModelViewSet):
             return RecipeWriteSerializer
         return super().get_serializer_class()
 
-    def create(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
-        instance = get_annotated_recipe_instance(serializer, request)
-        response_serializer = RecipeReadSerializer(instance)
-        return Response(
-            response_serializer.data, status=status.HTTP_201_CREATED
-        )
-
     def partial_update(self, request, *args, **kwargs):
         return self.update(request, *args, **kwargs)
-
-    def update(self, request, *args, **kwargs):
-        instance = self.get_object()
-        serializer = self.get_serializer(instance, data=request.data)
-        instance = get_annotated_recipe_instance(serializer, request)
-        if getattr(instance, '_prefetched_objects_cache', None):
-            instance._prefetched_objects_cache = {}
-        response_serializer = RecipeReadSerializer(instance)
-        return Response(response_serializer.data, status=status.HTTP_200_OK)
 
     @action(detail=False, methods=["get"], url_path="favorite")
     def favorite_list(self, request):
@@ -343,8 +325,12 @@ class RecipeModelViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["post"])
     def shopping_cart(self, request, pk):
-        process_recipe_for_favorite(pk, request, FavoriteRecipeSerializer)
+        return process_recipe_for_favorite(
+            pk, request, FavoriteRecipeSerializer
+        )
 
     @shopping_cart.mapping.delete
     def shopping_cart_delete(self, request, pk):
-        process_recipe_for_favorite(pk, request, FavoriteRecipeSerializer)
+        return process_recipe_for_favorite(
+            pk, request, FavoriteRecipeSerializer
+        )

@@ -1,13 +1,14 @@
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import \
-    validate_password as validate_user_password
+    validate_password as validate_user_password  # noqa
 from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator
 from django.db import transaction
 from rest_framework import serializers
 
 from .fields import Base64EncodedImageField  # isort:skip
-from .utils import add_ingredients_to_recipe  # isort:skip
+from .utils import (add_ingredients_to_recipe,  # isort:skip
+                    get_annotated_recipe_instance)  # isort:skip
 from recipes.models import (Ingredient, Tag, Recipe,  # isort:skip
                             RecipeIngredient)  # isort:skip
 
@@ -200,6 +201,11 @@ class RecipeWriteSerializer(serializers.ModelSerializer):
             "cooking_time",
         )
 
+    def to_representation(self, instance):
+        instance = get_annotated_recipe_instance(
+            instance, self.context.get("request"))
+        return RecipeReadSerializer().to_representation(instance)
+
     def validate_ingredients(self, data):
         ingredient_id_set = set()
         for ingredient in data:
@@ -216,7 +222,8 @@ class RecipeWriteSerializer(serializers.ModelSerializer):
             recipe = Recipe.objects.create(**validated_data)
             recipe.tags.set(tag_ids)
             add_ingredients_to_recipe(recipe, ingredient_data)
-            return recipe
+        return get_annotated_recipe_instance(
+            recipe, self.context.get("request"))
 
     def update(self, instance, validated_data):
         tag_ids = validated_data.pop("tags")
@@ -227,7 +234,8 @@ class RecipeWriteSerializer(serializers.ModelSerializer):
             instance.tags.set(tag_ids, clear=True)
             instance.recipe_ingredients.all().delete()
             add_ingredients_to_recipe(instance, ingredient_data)
-        return instance
+        return get_annotated_recipe_instance(
+            instance, self.context.get("request"))
 
 
 class FavoriteRecipeSerializer(RecipeReadSerializer):
