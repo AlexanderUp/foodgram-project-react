@@ -1,3 +1,5 @@
+![Foodgram workflow status](https://github.com/AlexanderUp/foodgram-project-react/actions/workflows/foodgram_workflow.yml/badge.svg)
+
 # Foodgram API
 
 API приложения Foodgram.
