@@ -9,7 +9,6 @@ services:
       - ./backend/foodgram/foodgram/.env
 
   web:
-    # build: .
     image: foodgram:latest
     restart: always
     ports:
@@ -21,7 +20,6 @@ services:
       - db
     env_file:
       - ./backend/foodgram/foodgram/.env
-    # command:
 
 volumes:
   data_volume_foodgram:
