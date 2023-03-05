@@ -13,7 +13,7 @@ SECRET_KEY = os.getenv("DJANGO_FOODGRAM_PROJECT_SECRET_KEY",
 DEBUG = True
 
 ALLOWED_HOSTS = [
-    "127.0.0.1",
+    "web",
 ]
 
 INSTALLED_APPS = [
@@ -25,6 +25,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "debug_toolbar",
     "rest_framework",
+    "corsheaders",
     "rest_framework.authtoken",
     "djoser",
     "drf_yasg",
@@ -37,6 +38,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
+    "corsheaders.middleware.CorsMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
@@ -155,3 +157,15 @@ SWAGGER_SETTINGS = {
 MEDIA_URL = "media/"
 
 MEDIA_ROOT = BASE_DIR / "media"
+
+CORS_URLS_REGEX = r"^/(api|admin)/.*$"
+
+CORS_ALLOWED_ORIGINS = [
+    "http://127.0.0.1",
+    "localhost",
+]
+
+CSRF_TRUSTED_ORIGINS = [
+    "http://127.0.0.1",
+    "localhost",
+]
