@@ -162,10 +162,10 @@ CORS_URLS_REGEX = r"^/(api|admin)/.*$"
 
 CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1",
-    "localhost",
+    "http://localhost",
 ]
 
 CSRF_TRUSTED_ORIGINS = [
     "http://127.0.0.1",
-    "localhost",
+    "http://localhost",
 ]
