@@ -34,8 +34,6 @@ jobs:
           python -m pip install flake8 flake8-broken-line flake8-isort flake8-plugin-utils flake8-return
           python -m pip install -r requirements.txt
 
-      - name: Connect to PostgreSQL
-
       - name: Run tests with flake8
         run: |
           python -m flake8
