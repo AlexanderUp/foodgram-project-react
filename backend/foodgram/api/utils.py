@@ -40,21 +40,41 @@ def get_shopping_cart_ingredient_list_string(ingredients):
     return "\n".join(strings)
 
 
-def process_recipe_for_favorite(pk, request, serializer_class):
+def process_recipe_for_shopping_cart(pk, request, serializer_class):
     recipe = get_object_or_404(Recipe, pk=pk)
     err_msg = {}
 
-    if request.method == "post":
+    if request.method == "POST":
         if not request.user.shopping_cart.filter(pk=recipe.pk).exists():
             request.user.shopping_cart.add(recipe)
             serializer = serializer_class(recipe)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         err_msg.update({"errors": "Recipe already in shopping_cart."})
 
-    if request.method == "delete":
+    if request.method == "DELETE":
         if request.user.shopping_cart.filter(pk=recipe.pk).exists():
             request.user.shopping_cart.remove(recipe)
             return Response(status=status.HTTP_204_NO_CONTENT)
         err_msg.update({"errors": "No such recipe in shopping cart."})
+
+    return Response(err_msg, status=status.HTTP_400_BAD_REQUEST)
+
+
+def process_recipe_for_favorite(pk, request, serializer_class):
+    recipe = get_object_or_404(Recipe, pk=pk)
+    err_msg = {}
+
+    if request.method == "POST":
+        if not request.user.favorite_recipes.filter(pk=recipe.pk).exists():
+            request.user.favorite_recipes.add(recipe)
+            serializer = serializer_class(recipe)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        err_msg.update({"errors": "Recipe already in favorites."})
+
+    if request.method == "DELETE":
+        if request.user.favorite_recipes.filter(pk=recipe.pk).exists():
+            request.user.favorite_recipes.remove(recipe)
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        err_msg.update({"errors": "No such recipe in favorites."})
 
     return Response(err_msg, status=status.HTTP_400_BAD_REQUEST)

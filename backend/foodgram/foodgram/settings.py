@@ -13,7 +13,10 @@ SECRET_KEY = os.getenv("DJANGO_FOODGRAM_PROJECT_SECRET_KEY",
 DEBUG = True
 
 ALLOWED_HOSTS = [
-    "127.0.0.1",
+    "localhost",
+    "51.250.22.164",
+    "http://uperenko.ddns.net",
+    "https://uperenko.ddns.net",
 ]
 
 INSTALLED_APPS = [
@@ -25,6 +28,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "debug_toolbar",
     "rest_framework",
+    "corsheaders",
     "rest_framework.authtoken",
     "djoser",
     "drf_yasg",
@@ -37,6 +41,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
+    "corsheaders.middleware.CorsMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
@@ -71,8 +76,12 @@ WSGI_APPLICATION = "foodgram.wsgi.application"
 
 DATABASES = {
     "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
+        "ENGINE": os.getenv("DB_ENGINE", "django.db.backends.postgresql"),
+        "NAME": os.getenv("DB_NAME", "postgres"),
+        "USER": os.getenv("POSTGRES_USER", "postgres"),
+        "PASSWORD": os.getenv("POSTGRES_PASSWORD", "super-secret-password"),
+        "HOST": os.getenv("DB_HOST", "127.0.0.1"),
+        "PORT": os.getenv("DB_PORT", 5432),
     }
 }
 
@@ -99,7 +108,9 @@ USE_I18N = True
 
 USE_TZ = True
 
-STATIC_URL = "static/"
+STATIC_URL = "django_static/"
+
+STATIC_ROOT = BASE_DIR / "static"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
@@ -146,6 +157,26 @@ SWAGGER_SETTINGS = {
     }
 }
 
-MEDIA_URL = "/media/"
+MEDIA_URL = "media/"
 
 MEDIA_ROOT = BASE_DIR / "media"
+
+CORS_URLS_REGEX = r"^/(api|admin)/.*$"
+
+CORS_ALLOWED_ORIGINS = [
+    "http://127.0.0.1",
+    "http://localhost",
+    "http://51.250.22.164",
+    "https://51.250.22.164",
+    "http://uperenko.ddns.net",
+    "https://uperenko.ddns.net",
+]
+
+CSRF_TRUSTED_ORIGINS = [
+    "http://127.0.0.1",
+    "http://localhost",
+    "http://51.250.22.164",
+    "https://51.250.22.164",
+    "http://uperenko.ddns.net",
+    "https://uperenko.ddns.net",
+]

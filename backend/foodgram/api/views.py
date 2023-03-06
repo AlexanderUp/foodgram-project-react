@@ -19,7 +19,8 @@ from .serializers import (FavoriteRecipeSerializer, IngredientSerializer,
                           TagSerializer, UserCreationSerializer,
                           UserListRetrieveSerializer)
 from .utils import (get_shopping_cart_ingredient_list_string,
-                    process_recipe_for_favorite)
+                    process_recipe_for_favorite,
+                    process_recipe_for_shopping_cart)
 from recipes.models import (Ingredient, Recipe, RecipeIngredient,  # isort:skip
                             Tag)
 
@@ -164,9 +165,7 @@ class IngredientReadOnlyViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Ingredient.objects.select_related("measurement_unit").all()
     permission_classes = (AllowAny,)
     pagination_class = None
-    filter_backends = (DjangoFilterBackend,
-                       CustomOrderedIngredientSearchFilter)
-    filterset_fields = ("name",)
+    filter_backends = (CustomOrderedIngredientSearchFilter,)
     search_fields = ("name",)
 
 
@@ -272,26 +271,15 @@ class RecipeModelViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["post"])
     def favorite(self, request, pk):
-        recipe = get_object_or_404(Recipe, pk=pk)
-        err_msg = {}
-        if request.user.favorite_recipes.filter(pk=recipe.pk).exists():
-            err_msg.update({"errors": "Recipe already in favorites."})
-        if err_msg:
-            return Response(err_msg, status=status.HTTP_400_BAD_REQUEST)
-        request.user.favorite_recipes.add(recipe)
-        serializer = FavoriteRecipeSerializer(recipe)
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return process_recipe_for_favorite(
+            pk, request, FavoriteRecipeSerializer
+        )
 
     @favorite.mapping.delete
     def unfavorite(self, request, pk):
-        recipe = get_object_or_404(Recipe, pk=pk)
-        err_msg = {}
-        if not request.user.favorite_recipes.filter(pk=recipe.pk).exists():
-            err_msg.update({"errors": "No such recipe in favorites."})
-        if err_msg:
-            return Response(err_msg, status=status.HTTP_400_BAD_REQUEST)
-        request.user.favorite_recipes.remove(recipe)
-        return Response(status=status.HTTP_204_NO_CONTENT)
+        return process_recipe_for_favorite(
+            pk, request, FavoriteRecipeSerializer
+        )
 
     @action(detail=False, methods=["get"], url_path="show_shopping_cart")
     def show_shopping_cart(self, request):
@@ -325,12 +313,12 @@ class RecipeModelViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["post"])
     def shopping_cart(self, request, pk):
-        return process_recipe_for_favorite(
+        return process_recipe_for_shopping_cart(
             pk, request, FavoriteRecipeSerializer
         )
 
     @shopping_cart.mapping.delete
     def shopping_cart_delete(self, request, pk):
-        return process_recipe_for_favorite(
+        return process_recipe_for_shopping_cart(
             pk, request, FavoriteRecipeSerializer
         )
