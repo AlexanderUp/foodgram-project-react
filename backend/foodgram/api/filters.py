@@ -6,6 +6,7 @@ from rest_framework.filters import SearchFilter
 class CustomOrderedIngredientSearchFilter(SearchFilter):
 
     def filter_queryset(self, request, queryset, view):
+        self.search_param = "name"
         if self.search_param not in request.query_params:
             return queryset
 

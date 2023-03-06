@@ -13,7 +13,10 @@ SECRET_KEY = os.getenv("DJANGO_FOODGRAM_PROJECT_SECRET_KEY",
 DEBUG = True
 
 ALLOWED_HOSTS = [
-    "web",
+    "localhost",
+    "51.250.22.164",
+    "http://uperenko.ddns.net",
+    "https://uperenko.ddns.net",
 ]
 
 INSTALLED_APPS = [
@@ -105,7 +108,7 @@ USE_I18N = True
 
 USE_TZ = True
 
-STATIC_URL = "static/"
+STATIC_URL = "django_static/"
 
 STATIC_ROOT = BASE_DIR / "static"
 
@@ -163,9 +166,17 @@ CORS_URLS_REGEX = r"^/(api|admin)/.*$"
 CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1",
     "http://localhost",
+    "http://51.250.22.164",
+    "https://51.250.22.164",
+    "http://uperenko.ddns.net",
+    "https://uperenko.ddns.net",
 ]
 
 CSRF_TRUSTED_ORIGINS = [
     "http://127.0.0.1",
     "http://localhost",
+    "http://51.250.22.164",
+    "https://51.250.22.164",
+    "http://uperenko.ddns.net",
+    "https://uperenko.ddns.net",
 ]
