@@ -15,8 +15,7 @@ DEBUG = True
 ALLOWED_HOSTS = [
     "localhost",
     "51.250.22.164",
-    "http://uperenko.ddns.net",
-    "https://uperenko.ddns.net",
+    "uperenko.ddns.net",
 ]
 
 INSTALLED_APPS = [
@@ -164,19 +163,15 @@ MEDIA_ROOT = BASE_DIR / "media"
 CORS_URLS_REGEX = r"^/(api|admin)/.*$"
 
 CORS_ALLOWED_ORIGINS = [
-    "http://127.0.0.1",
-    "http://localhost",
-    "http://51.250.22.164",
-    "https://51.250.22.164",
-    "http://uperenko.ddns.net",
-    "https://uperenko.ddns.net",
+    "127.0.0.1",
+    "localhost",
+    "51.250.22.164",
+    "uperenko.ddns.net",
 ]
 
 CSRF_TRUSTED_ORIGINS = [
-    "http://127.0.0.1",
-    "http://localhost",
-    "http://51.250.22.164",
-    "https://51.250.22.164",
-    "http://uperenko.ddns.net",
-    "https://uperenko.ddns.net",
+    "127.0.0.1",
+    "localhost",
+    "51.250.22.164",
+    "uperenko.ddns.net",
 ]
