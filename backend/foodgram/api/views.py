@@ -238,7 +238,7 @@ class RecipeModelViewSet(viewsets.ModelViewSet):
         if is_in_shopping_cart_param:
             q_object &= Q(is_in_shopping_cart=is_in_shopping_cart_param)
 
-        return query.filter(q_object)
+        return query.filter(q_object).distinct()
 
     def get_permissions(self):
         action_list = ("list", "retrieve",)

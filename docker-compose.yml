@@ -9,7 +9,7 @@ services:
       - ./backend/foodgram/foodgram/.env
 
   web:
-    image: foodgram:latest
+    image: alexanderup/foodgram:latest
     restart: always
     volumes:
       - static_volume_foodgram:/app/app/static/
