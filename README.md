@@ -1,21 +1,5 @@
 ![Foodgram workflow status](https://github.com/AlexanderUp/foodgram-project-react/actions/workflows/foodgram_workflow.yml/badge.svg)
 
-# Информация о проекте
-
-Проект развернут на сервере по адресу ```51.250.22.164``` (```http://uperenko.ddns.net```).
-
-Доступ в административную часть сайта:
-
-Логин - ```admin```
-
-Пароль - ```qwerty1990```
-
-По мимо пользователя ```admin``` зарегистрирован пользователь ```leo``` со следующими данными для входа на сайт:
-
-Логин - ```leo@example.com```
-
-Пароль - ```qwerty1990```
-
 # Foodgram API
 
 API приложения Foodgram.
@@ -75,6 +59,3 @@ Python 3.11.1
 Django 4.1.7
 
 DRF 3.14
-
-# Автор
-Уперенко Александр, студент когорты 44.
